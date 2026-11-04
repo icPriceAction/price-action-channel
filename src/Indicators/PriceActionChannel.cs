@@ -10,7 +10,6 @@
 // Repository:   https://github.com/icPriceAction/price-action-channel
 // YouTube:      https://youtube.com/@icPriceAction
 // Support:      https://buymeacoffee.com/icpriceaction
-// Prop Code:    ICPAT (Discounts: https://icpriceaction.com/prop-firms.html)
 //
 // License:      Free for personal trading use. Commercial resale, redistribution,
 //               or repackaging is strictly prohibited. See LICENSE in official repository.
@@ -19,13 +18,13 @@
 //               vertical ends, optional extensions and on-chart handles for length, width and rotation.
 //
 // Changelog:
-//   v1.3.1 (2026-11-03) - Initial public release. Cleaned and optimized by icPriceAction.
+//   v1.3.1                - Initial public release. Cleaned and optimized by icPriceAction.
 //                         - Direct2D brushes created in OnRenderTargetChanged; fill color updated without reallocation.
 //                         - Channel fill geometry cached and rebuilt only when the channel moves on screen.
 //                         - Removed per-call allocations in autoscale, culling and selection points.
 //                         - Rendering guarded before the first click; fill color brush frozen for thread safety.
 //                         - Settings regrouped (1. General / 2. Visuals) with descriptions on every setting.
-//   v1.3.0 (date unknown) - New geometry model with Square/Vertical channel ends; line settings moved to
+//   v1.2.0                - New geometry model with Square/Vertical channel ends; line settings moved to
 //                           Stroke properties (v1.2.x color/width settings still load).
 // =========================================================================================
 #region Using declarations
@@ -166,7 +165,7 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 					+ "When selected, drag the corners for length/width, the blue dots to rotate, the squares for width, or the body to move.\r\n"
 					+ "Works on any chart and bar type. No Tick Replay or Calculate setting required.\r\n"
 					+ "Developed by Istvan Cebrian | https://icpriceaction.com\r\n"
-					+ "Support this free tool: https://buymeacoffee.com/icpriceaction | Prop Firm Discount Code: ICPAT (https://icpriceaction.com/prop-firms.html)";
+					+ "Support this free tool: https://buymeacoffee.com/icpriceaction";
 
 				anchorBaseStart = new ChartAnchor { IsEditing = true, DrawingTool = this, DisplayName = "Base Start" };
 				anchorBaseEnd = new ChartAnchor { IsEditing = false, DrawingTool = this, DisplayName = "Base End" };
