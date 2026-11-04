@@ -44,7 +44,7 @@ If this tool saves you screen time, improves your execution, or cleans up your c
 - **Precise Editing Handles:** When selected, drag a corner to change length and width without changing the angle, drag a blue dot to rotate around the opposite end of the midline, drag a square to move just one line in or out, or drag the body to move the whole channel.
 - **Square or Vertical Ends:** Choose ends that stay at 90 degrees on screen at any zoom, or vertical ends so both lines always start and end on the same bars. Optionally extend all lines to the left and/or right edge of the chart.
 - **PATS & Context Aligned:** Designed for Price Action principles and disciplined futures execution.
-- **Zero Chart Lag:** Native C# execution optimized to prevent UI freezes on high-frequency 2000-tick ES/MES charts.
+- **Zero Chart Lag:** Native C# execution optimized to prevent UI freezes on high-frequency tick charts.
 - **Clean Visuals:** Complementary default palette that preserves candlestick clarity without chart clutter.
 - **Fully Customizable:** Configure line and midline styles, fill color, opacity, channel ends and extensions via the native NT8 settings panel.
 
