@@ -91,8 +91,8 @@ If this tool saves you screen time, improves your execution, or cleans up your c
 
 ## 📝 Changelog
 
-- **v1.3.1** (2026-11-03) - Initial public release. Cleaned and optimized by icPriceAction.
-- **v1.3.0** (date unknown) - New geometry model with Square/Vertical channel ends; line settings moved to Stroke properties (v1.2.x color/width settings still load).
+- **v1.3.1** - Initial public release. Cleaned and optimized by icPriceAction.
+- **v1.3.0** - New geometry model with Square/Vertical channel ends; line settings moved to Stroke properties (v1.2.x color/width settings still load).
 
 ---
 
