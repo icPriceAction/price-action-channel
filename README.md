@@ -60,7 +60,7 @@ If this tool saves you screen time, improves your execution, or cleans up your c
 ## 📥 Installation Guide
 
 1. Head to the **[Releases](https://github.com/icPriceAction/price-action-channel/releases)** tab of this repository.
-2. Download the latest release `.zip` file (`icPriceAction_PriceActionChannel_v1.3.1.zip`).
+2. Download the latest release `.zip` file.
    - *Note: Do NOT extract or unzip the file.*
 3. Open **NinjaTrader 8**.
 4. In the Control Center, navigate to:
