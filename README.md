@@ -20,7 +20,7 @@ Watch the complete breakdown of parameters, price action context, and chart exam
 
 ---
 
-## 🆕 What's New in v1.4.0
+## 🆕 What's New in v1.4.1
 
 - **Click-through fill:** The channel is now selected and moved by its lines only (base, parallel, or midline when shown). Order lines, other drawings and Chart Trader inside a large channel stay fully clickable.
 - **Ray-style drawing:** After the first click, the base line previews as a ray through the cursor to the chart edge (solid up to the cursor, dashed beyond it), so you can line it up with swing points further out before setting the length.

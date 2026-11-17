@@ -2,7 +2,7 @@
 // Tool Name:    Price Action Channel
 // Class:        PriceActionChannel
 // Category:     Drawing Tool
-// Version:      1.4.0
+// Version:      1.4.1
 // Platform:     NinjaTrader 8.0+
 // Author:       Istvan Cebrian
 // Brand:        icPriceAction
@@ -18,6 +18,8 @@
 //               vertical ends, optional extensions and on-chart handles for length, width and rotation.
 //
 // Changelog:
+//   v1.4.1 (2026-11-17) - Fix: clicking or double-clicking the fill no longer briefly selects the channel or
+//                         opens its properties (fill excluded from NinjaTrader's hit-test pass).
 //   v1.4.0 (2026-11-17) - Channel fill is click-through: select and move the channel by its lines only.
 //                         - Hidden midline (Show 50% Midline off) no longer catches clicks.
 //                         - Drawing: after click 1 the base line previews as a ray toward the cursor.
@@ -176,7 +178,7 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 					+ "Includes a 50% midline, square or vertical channel ends, optional left/right extensions and right-margin drawing. "
 					+ "When selected, drag the corners for length/width, the blue dots to rotate, the squares for width, or any line to move the channel. "
 					+ "The fill is click-through, so other drawings and order lines inside the channel stay clickable.\r\n"
-					+ "Developed by Istvan Cebrian | https://icpriceaction.com\r\n"
+					+ "Developed by Istvan Cebrian | https://icpriceaction.com\r"
 					+ "Support this free tool: https://buymeacoffee.com/icpriceaction | Prop Firm Discount Code: ICPAT (https://icpriceaction.com/prop-firms.html)";
 
 				anchorBaseStart = new ChartAnchor { IsEditing = true, DrawingTool = this, DisplayName = "Base Start" };
@@ -968,7 +970,7 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 			// STAGE 2 (after click 2): full channel preview tracking the cursor + dashed ray guides
 			if (DrawingState == DrawingState.Building && currentBuildStep == BuildStep.SettingChannelOffset)
 			{
-				if (FillOpacity > 0)
+				if (FillOpacity > 0 && !IsInHitTest)
 					rt.FillGeometry(GetFillGeometry(g.BaseStart, g.BaseEnd, g.ParallelEnd, g.ParallelStart), dxFillBrush);
 
 				rt.DrawLine(g.BaseStart, g.BaseEnd, LineStroke.BrushDX, LineStroke.Width, LineStroke.StrokeStyle);
@@ -989,8 +991,8 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 			// STAGE 3: completed channel (extensions affect drawing only; handles stay on the real anchors)
 			ChannelGeometry e = ApplyExtensions(g, chartPanel);
 
-			// 1. Fill
-			if (FillOpacity > 0)
+			// 1. Fill (skipped in NT's hit-test pass so clicks and double-clicks on the fill pass through)
+			if (FillOpacity > 0 && !IsInHitTest)
 				rt.FillGeometry(GetFillGeometry(e.BaseStart, e.BaseEnd, e.ParallelEnd, e.ParallelStart), dxFillBrush);
 
 			// 2. Base & parallel lines (no end connectors)
