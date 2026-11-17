@@ -2,7 +2,7 @@
 // Tool Name:    Price Action Channel
 // Class:        PriceActionChannel
 // Category:     Drawing Tool
-// Version:      1.3.1
+// Version:      1.4.0
 // Platform:     NinjaTrader 8.0+
 // Author:       Istvan Cebrian
 // Brand:        icPriceAction
@@ -18,13 +18,17 @@
 //               vertical ends, optional extensions and on-chart handles for length, width and rotation.
 //
 // Changelog:
-//   v1.3.1                - Initial public release. Cleaned and optimized by icPriceAction.
+//   v1.4.0 (2026-11-17) - Channel fill is click-through: select and move the channel by its lines only.
+//                         - Hidden midline (Show 50% Midline off) no longer catches clicks.
+//                         - Drawing: after click 1 the base line previews as a ray toward the cursor.
+//                         - Drawing: after click 2 the full channel (fill, midline) previews with ray guides.
+//   v1.3.1 (2026-11-03) - Initial public release. Cleaned and optimized by icPriceAction.
 //                         - Direct2D brushes created in OnRenderTargetChanged; fill color updated without reallocation.
 //                         - Channel fill geometry cached and rebuilt only when the channel moves on screen.
 //                         - Removed per-call allocations in autoscale, culling and selection points.
 //                         - Rendering guarded before the first click; fill color brush frozen for thread safety.
 //                         - Settings regrouped (1. General / 2. Visuals) with descriptions on every setting.
-//   v1.2.0                - New geometry model with Square/Vertical channel ends; line settings moved to
+//   v1.3.0 (date unknown) - New geometry model with Square/Vertical channel ends; line settings moved to
 //                           Stroke properties (v1.2.x color/width settings still load).
 // =========================================================================================
 #region Using declarations
@@ -73,7 +77,14 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 	///   - 2 rotate handles (blue dots just beyond the midline ends): angle + length, pivoting
 	///     around the opposite midline end. Width is locked.
 	///   - 2 width handles (squares on the line midpoints): pure width, moves only that line.
-	///   - Channel body: moves the whole channel.
+	///   - Any line (base, parallel, or the midline when shown): moves the whole channel.
+	///   The fill is click-through, so large channels don't block other drawings or order lines.
+	///
+	/// Building (3 clicks):
+	///   - Click 1: base start. The base line previews as a ray through the cursor to the chart edge
+	///     (solid up to the cursor, dashed beyond it).
+	///   - Click 2: base end (angle + length). The full channel previews with dashed ray guides.
+	///   - Click 3: channel width.
 	/// </summary>
 	public class PriceActionChannel : DrawingTool
 	{
@@ -143,6 +154,7 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 		private SharpDX.Direct2D1.SolidColorBrush dxHandleBorder;
 		private SharpDX.Direct2D1.SolidColorBrush dxWidthHandleFill;
 		private SharpDX.Direct2D1.SolidColorBrush dxAccent;
+		private SharpDX.Direct2D1.StrokeStyle dxGuideStyle;   // dashed style for the ray guides while drawing
 		private Color4 cachedFillColor;
 
 		// Cached fill geometry (factory resource): rebuilt only when the channel's screen corners change
@@ -162,10 +174,10 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 				Name = "Price Action Channel";
 				Description = "Draws a 3-point PATS trend channel: clicks 1 and 2 set the base line, click 3 sets the parallel line. "
 					+ "Includes a 50% midline, square or vertical channel ends, optional left/right extensions and right-margin drawing. "
-					+ "When selected, drag the corners for length/width, the blue dots to rotate, the squares for width, or the body to move.\r\n"
-					+ "Works on any chart and bar type. No Tick Replay or Calculate setting required.\r\n"
+					+ "When selected, drag the corners for length/width, the blue dots to rotate, the squares for width, or any line to move the channel. "
+					+ "The fill is click-through, so other drawings and order lines inside the channel stay clickable.\r\n"
 					+ "Developed by Istvan Cebrian | https://icpriceaction.com\r\n"
-					+ "Support this free tool: https://buymeacoffee.com/icpriceaction";
+					+ "Support this free tool: https://buymeacoffee.com/icpriceaction | Prop Firm Discount Code: ICPAT (https://icpriceaction.com/prop-firms.html)";
 
 				anchorBaseStart = new ChartAnchor { IsEditing = true, DrawingTool = this, DisplayName = "Base Start" };
 				anchorBaseEnd = new ChartAnchor { IsEditing = false, DrawingTool = this, DisplayName = "Base End" };
@@ -530,27 +542,17 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 			return DragMode.None;
 		}
 
+		// Lines only: the fill is click-through so a large channel never blocks other drawings or order lines.
+		// The midline only counts when it is actually shown.
 		private bool IsPointOverChannel(ChannelGeometry g, Vector2 pt, ChartPanel chartPanel)
 		{
 			ChannelGeometry e = ApplyExtensions(g, chartPanel);
 
 			if (DistanceToLineSegment(pt, e.BaseStart, e.BaseEnd) <= HitRadius ||
-			    DistanceToLineSegment(pt, e.ParallelStart, e.ParallelEnd) <= HitRadius ||
-			    DistanceToLineSegment(pt, e.MidStart, e.MidEnd) <= HitRadius)
+			    DistanceToLineSegment(pt, e.ParallelStart, e.ParallelEnd) <= HitRadius)
 				return true;
 
-			return PointInQuad(pt, e.BaseStart, e.BaseEnd, e.ParallelEnd, e.ParallelStart);
-		}
-
-		private static bool PointInQuad(Vector2 p, Vector2 a, Vector2 b, Vector2 c, Vector2 d)
-		{
-			float s1 = Cross(b - a, p - a);
-			float s2 = Cross(c - b, p - b);
-			float s3 = Cross(d - c, p - c);
-			float s4 = Cross(a - d, p - d);
-			bool allPos = s1 >= 0 && s2 >= 0 && s3 >= 0 && s4 >= 0;
-			bool allNeg = s1 <= 0 && s2 <= 0 && s3 <= 0 && s4 <= 0;
-			return allPos || allNeg;
+			return ShowMidline && DistanceToLineSegment(pt, e.MidStart, e.MidEnd) <= HitRadius;
 		}
 
 		private static float DistanceToLineSegment(Vector2 p, Vector2 a, Vector2 b)
@@ -846,6 +848,8 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 			dxHandleBorder = new SharpDX.Direct2D1.SolidColorBrush(rt, new Color4(0.2f, 0.2f, 0.2f, 1f));
 			dxWidthHandleFill = new SharpDX.Direct2D1.SolidColorBrush(rt, new Color4(0.95f, 0.95f, 0.95f, 1f));
 			dxAccent = new SharpDX.Direct2D1.SolidColorBrush(rt, new Color4(0.1f, 0.5f, 0.9f, 1f));
+			dxGuideStyle = new SharpDX.Direct2D1.StrokeStyle(NinjaTrader.Core.Globals.D2DFactory,
+				new SharpDX.Direct2D1.StrokeStyleProperties { DashStyle = SharpDX.Direct2D1.DashStyle.Dash });
 
 			cachedFillColor = ToSharpDXColor(FillColor, FillOpacity / 100f);
 			dxFillBrush = new SharpDX.Direct2D1.SolidColorBrush(rt, cachedFillColor);
@@ -858,6 +862,11 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 			DisposeBrush(ref dxHandleBorder);
 			DisposeBrush(ref dxWidthHandleFill);
 			DisposeBrush(ref dxAccent);
+			if (dxGuideStyle != null)
+			{
+				dxGuideStyle.Dispose();
+				dxGuideStyle = null;
+			}
 			cachedRenderTarget = null;
 		}
 
@@ -948,18 +957,32 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 
 			LineStroke.RenderTarget = rt;
 
-			// STAGE 1 (after click 1): base line only
+			// STAGE 1 (after click 1): base line to the cursor + dashed ray guide to the chart edge
 			if (DrawingState == DrawingState.Building && currentBuildStep == BuildStep.SettingBaseEnd)
 			{
 				rt.DrawLine(g.BaseStart, g.BaseEnd, LineStroke.BrushDX, LineStroke.Width, LineStroke.StrokeStyle);
+				DrawRayGuide(rt, g.BaseEnd, g.BaseEnd - g.BaseStart, chartPanel);
 				return;
 			}
 
-			// STAGE 2 (after click 2): base line + tracking parallel line
+			// STAGE 2 (after click 2): full channel preview tracking the cursor + dashed ray guides
 			if (DrawingState == DrawingState.Building && currentBuildStep == BuildStep.SettingChannelOffset)
 			{
+				if (FillOpacity > 0)
+					rt.FillGeometry(GetFillGeometry(g.BaseStart, g.BaseEnd, g.ParallelEnd, g.ParallelStart), dxFillBrush);
+
 				rt.DrawLine(g.BaseStart, g.BaseEnd, LineStroke.BrushDX, LineStroke.Width, LineStroke.StrokeStyle);
 				rt.DrawLine(g.ParallelStart, g.ParallelEnd, LineStroke.BrushDX, LineStroke.Width, LineStroke.StrokeStyle);
+
+				if (ShowMidline && MidlineStroke != null)
+				{
+					MidlineStroke.RenderTarget = rt;
+					rt.DrawLine(g.MidStart, g.MidEnd, MidlineStroke.BrushDX, MidlineStroke.Width, MidlineStroke.StrokeStyle);
+				}
+
+				Vector2 dir = g.BaseEnd - g.BaseStart;
+				DrawRayGuide(rt, g.BaseEnd, dir, chartPanel);
+				DrawRayGuide(rt, g.ParallelEnd, dir, chartPanel);
 				return;
 			}
 
@@ -1000,6 +1023,25 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 				DrawSquareHandle(rt, g.BaseMid, dxWidthHandleFill, dxAccent);
 				DrawSquareHandle(rt, g.ParallelMid, dxWidthHandleFill, dxAccent);
 			}
+		}
+
+		// Thin dashed guide from 'from' along 'dir' to the edge of the chart panel (building preview only)
+		private void DrawRayGuide(SharpDX.Direct2D1.RenderTarget rt, Vector2 from, Vector2 dir, ChartPanel chartPanel)
+		{
+			if (dxGuideStyle == null || dir.LengthSquared() < 0.0001f)
+				return;
+
+			float xMin = chartPanel.X, xMax = chartPanel.X + chartPanel.W;
+			float yMin = chartPanel.Y, yMax = chartPanel.Y + chartPanel.H;
+
+			// Distance (in multiples of dir) until the ray leaves the panel
+			float tx = dir.X > 0f ? (xMax - from.X) / dir.X : dir.X < 0f ? (xMin - from.X) / dir.X : float.MaxValue;
+			float ty = dir.Y > 0f ? (yMax - from.Y) / dir.Y : dir.Y < 0f ? (yMin - from.Y) / dir.Y : float.MaxValue;
+			float t = Math.Min(tx, ty);
+			if (t <= 0f || t == float.MaxValue)
+				return;
+
+			rt.DrawLine(from, from + (dir * t), LineStroke.BrushDX, 1f, dxGuideStyle);
 		}
 
 		private void DrawCircleHandle(SharpDX.Direct2D1.RenderTarget rt, Vector2 center,
