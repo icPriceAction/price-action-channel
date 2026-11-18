@@ -16,7 +16,7 @@ Watch the complete breakdown of parameters, price action context, and chart exam
 
 [![Watch the Video](assets/preview.png)](https://youtu.be/2E_B3wqdpHc)
 
-> **[▶ Click here to watch the full YouTube walkthrough](https://youtube.com/@icPriceAction)**
+> **[▶ Click here to watch the full YouTube walkthrough](https://youtu.be/2E_B3wqdpHc)**
 
 ---
 
