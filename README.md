@@ -20,12 +20,20 @@ Watch the complete breakdown of parameters, price action context, and chart exam
 
 ---
 
-## 🆕 What's New in v1.4.1
+## 🆕 What's New in v1.5.0
+
+- **Length Multiplier:** Anchor the channel on two swings as usual, and after the third click it automatically lengthens by 25% (default 1.25×), extending its right-hand end along the same angle and width. Set it to 2 to double the channel, or 1 to keep it exactly as drawn. Works the same on current and historical price action.
+- **Third click can lengthen too:** If your third click (the width point) is further right than the second click, the channel first reaches out to it, then the multiplier is applied. It never shortens the channel.
+- **Preview matches the result:** While drawing, the extra length shows as a faint ghost of the lines, so the finished channel is exactly what you saw.
+- **Indicator channels untouched:** Channels created by other indicators through `Draw.PriceActionChannel` keep the exact points they are given.
+
+### Earlier in v1.4.x
 
 - **Click-through fill:** The channel is now selected and moved by its lines only (base, parallel, or midline when shown). Order lines, other drawings and Chart Trader inside a large channel stay fully clickable.
 - **Ray-style drawing:** After the first click, the base line previews as a ray through the cursor to the chart edge (solid up to the cursor, dashed beyond it), so you can line it up with swing points further out before setting the length.
 - **Live channel preview:** After the second click, the full channel (fill, both lines and midline) previews as you set the width, with dashed ray guides beyond the line ends.
 - **Fix:** A hidden midline (Show 50% Midline off) no longer catches clicks.
+- **Fix (v1.4.1):** Clicking or double-clicking inside the fill no longer briefly selects the channel or opens its properties.
 
 ---
 
@@ -49,7 +57,7 @@ If this tool saves you screen time, improves your execution, or cleans up your c
 
 ## ⚡ Key Features
 
-- **3-Click PATS Channel:** Click 1 starts a ray-style base line that follows the cursor, click 2 sets its angle and length, and click 3 sets the parallel line with a live preview of the finished channel. A dashed 50% midline is drawn halfway between the lines, and the channel can be drawn into the chart's right margin.
+- **3-Click PATS Channel:** Click 1 starts a ray-style base line that follows the cursor, click 2 sets its angle and length, and click 3 sets the parallel line with a live preview of the finished channel. If click 3 is further right than click 2, the channel reaches it, and the length is then multiplied by a configurable amount (default 1.25×), so you rarely need to stretch it by hand. A dashed 50% midline is drawn halfway between the lines, and the channel can be drawn into the chart's right margin.
 - **Precise Editing Handles:** When selected, drag a corner to change length and width without changing the angle, drag a blue dot to rotate around the opposite end of the midline, drag a square to move just one line in or out, or drag any line to move the whole channel.
 - **Stays Out of Your Way:** The channel fill is click-through, so even very large channels never block order lines, Chart Trader or other drawings underneath.
 - **Square or Vertical Ends:** Choose ends that stay at 90 degrees on screen at any zoom, or vertical ends so both lines always start and end on the same bars. Optionally extend all lines to the left and/or right edge of the chart.
@@ -88,6 +96,7 @@ If this tool saves you screen time, improves your execution, or cleans up your c
 | Channel Ends | 1. General | Square / Vertical | Square | Square: ends at 90 degrees on screen. Vertical: both lines start and end on the same bars. |
 | Extend Lines Left | 1. General | Bool | False | Extends the base line, parallel line and midline to the left edge of the chart. |
 | Extend Lines Right | 1. General | Bool | False | Extends the base line, parallel line and midline to the right edge of the chart. |
+| Length Multiplier | 1. General | Double (1–10) | 1.25 | After click 3 the channel's length is multiplied by this, extending its right-hand end. 1 keeps it as drawn, 1.25 adds a quarter, 2 doubles it. If click 3 is further right than click 2, the channel first reaches click 3 and is then multiplied. Never shortens; channels drawn by indicators are never changed. |
 | Lines | 2. Visuals | Stroke | `#8E8E8E`, Solid, 1.5 px | Color, dash style and width of the base and parallel lines. |
 | Channel Fill Color | 2. Visuals | Brush | `#C6C6C6` | Color used to shade the area between the base and parallel lines. |
 | Fill Opacity (%) | 2. Visuals | Int (0–100) | 10 | Opacity of the channel fill. 0 turns the fill off. |
@@ -101,6 +110,8 @@ If this tool saves you screen time, improves your execution, or cleans up your c
 
 ## 📝 Changelog
 
+- **v1.5.0** - New Length Multiplier setting (default 1.25×) lengthens hand-drawn channels after click 3; click 3 can push the end further right before the multiplier is applied; faint ghost preview of the extra length while drawing.
+- **v1.4.1** - Fix: clicking or double-clicking the fill no longer briefly selects the channel or opens its properties.
 - **v1.4.0** - Click-through fill (select and move the channel by its lines only); ray-style base line preview after click 1; full channel preview with ray guides after click 2; hidden midline no longer catches clicks.
 - **v1.3.1** - Initial public release. Cleaned and optimized by icPriceAction.
 - **v1.3.0** - New geometry model with Square/Vertical channel ends; line settings moved to Stroke properties (v1.2.x color/width settings still load).

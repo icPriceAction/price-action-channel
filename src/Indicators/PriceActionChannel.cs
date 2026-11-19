@@ -2,7 +2,7 @@
 // Tool Name:    Price Action Channel
 // Class:        PriceActionChannel
 // Category:     Drawing Tool
-// Version:      1.4.1
+// Version:      1.5.0
 // Platform:     NinjaTrader 8.0+
 // Author:       Istvan Cebrian
 // Brand:        icPriceAction
@@ -18,6 +18,12 @@
 //               vertical ends, optional extensions and on-chart handles for length, width and rotation.
 //
 // Changelog:
+//   v1.5.0 (2026-11-19) - New "Length Multiplier" setting (default 1.25): after click 3 the channel is lengthened
+//                         by that factor, extending its right-hand end. 1.0 keeps it as drawn. Hand-drawn only.
+//                         - Click 3 can also lengthen the channel: if it is further right than click 2, the
+//                           channel reaches it first, then the multiplier is applied. Never shortens.
+//                         - Drawing preview shows the extra length as a faint ghost, so the preview matches
+//                           the finished channel.
 //   v1.4.1 (2026-11-17) - Fix: clicking or double-clicking the fill no longer briefly selects the channel or
 //                         opens its properties (fill excluded from NinjaTrader's hit-test pass).
 //   v1.4.0 (2026-11-17) - Channel fill is click-through: select and move the channel by its lines only.
@@ -87,6 +93,10 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 	///     (solid up to the cursor, dashed beyond it).
 	///   - Click 2: base end (angle + length). The full channel previews with dashed ray guides.
 	///   - Click 3: channel width.
+	///   After click 3 the right-hand end first reaches the third click if that is further right than click 2,
+	///   then the length is multiplied by LengthMultiplier. It never shortens. While drawing, that extra length
+	///   previews as a faint ghost.
+	///   Channels created through Draw.PriceActionChannel are never lengthened.
 	/// </summary>
 	public class PriceActionChannel : DrawingTool
 	{
@@ -157,7 +167,10 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 		private SharpDX.Direct2D1.SolidColorBrush dxWidthHandleFill;
 		private SharpDX.Direct2D1.SolidColorBrush dxAccent;
 		private SharpDX.Direct2D1.StrokeStyle dxGuideStyle;   // dashed style for the ray guides while drawing
+		private SharpDX.Direct2D1.SolidColorBrush dxGhostBrush; // faint line color for the extra-length preview
 		private Color4 cachedFillColor;
+		private Color4 cachedGhostColor;
+		private const float GhostAlpha = 0.35f;
 
 		// Cached fill geometry (factory resource): rebuilt only when the channel's screen corners change
 		private SharpDX.Direct2D1.PathGeometry fillGeometry;
@@ -177,9 +190,10 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 				Description = "Draws a 3-point PATS trend channel: clicks 1 and 2 set the base line, click 3 sets the parallel line. "
 					+ "Includes a 50% midline, square or vertical channel ends, optional left/right extensions and right-margin drawing. "
 					+ "When selected, drag the corners for length/width, the blue dots to rotate, the squares for width, or any line to move the channel. "
-					+ "The fill is click-through, so other drawings and order lines inside the channel stay clickable.\r\n"
+					+ "The fill is click-through, so other drawings and order lines inside the channel stay clickable. "
+					+ "Click 3 can push the end further right, then the length is multiplied by Length Multiplier (default 1.25x, 1 = off), shown as a faint ghost while drawing.\r\n"
 					+ "Developed by Istvan Cebrian | https://icpriceaction.com\r"
-					+ "Support this free tool: https://buymeacoffee.com/icpriceaction | Prop Firm Discount Code: ICPAT (https://icpriceaction.com/prop-firms.html)";
+					+ "Support this free tool: https://buymeacoffee.com/icpriceaction";
 
 				anchorBaseStart = new ChartAnchor { IsEditing = true, DrawingTool = this, DisplayName = "Base Start" };
 				anchorBaseEnd = new ChartAnchor { IsEditing = false, DrawingTool = this, DisplayName = "Base End" };
@@ -194,6 +208,7 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 				ExtendLeft = false;
 				ExtendRight = false;
 				EndStyle = PriceActionChannelEndStyle.Square;
+				LengthMultiplier = 1.25;
 			}
 			else if (State == State.Terminated)
 			{
@@ -239,12 +254,16 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 		[Display(Name = "Extend Lines Right", Description = "Extends the base line, parallel line and midline to the right edge of the chart.", GroupName = "1. General", Order = 3)]
 		public bool ExtendRight { get; set; }
 
+		[Range(1.0, 10.0)]
+		[Display(Name = "Length Multiplier", Description = "After click 3 the channel's length is multiplied by this, extending its right-hand end. 1 keeps it as drawn, 1.25 adds a quarter, 2 doubles it. If click 3 is further right than click 2, the channel first reaches click 3 and is then multiplied. Never shortens; channels drawn by indicators are never changed.", GroupName = "1. General", Order = 4)]
+		public double LengthMultiplier { get; set; }
+
 		// ---- 2. Visuals ----
-		[Display(Name = "Lines", Description = "Color, dash style and width of the base and parallel lines.", GroupName = "2. Visuals", Order = 4)]
+		[Display(Name = "Lines", Description = "Color, dash style and width of the base and parallel lines.", GroupName = "2. Visuals", Order = 5)]
 		public Stroke LineStroke { get; set; }
 
 		[XmlIgnore]
-		[Display(Name = "Channel Fill Color", Description = "Color used to shade the area between the base and parallel lines.", GroupName = "2. Visuals", Order = 5)]
+		[Display(Name = "Channel Fill Color", Description = "Color used to shade the area between the base and parallel lines.", GroupName = "2. Visuals", Order = 6)]
 		public System.Windows.Media.Brush FillColor
 		{
 			get { return fillColor; }
@@ -268,13 +287,13 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 		}
 
 		[Range(0, 100)]
-		[Display(Name = "Fill Opacity (%)", Description = "Opacity of the channel fill. 0 turns the fill off.", GroupName = "2. Visuals", Order = 6)]
+		[Display(Name = "Fill Opacity (%)", Description = "Opacity of the channel fill. 0 turns the fill off.", GroupName = "2. Visuals", Order = 7)]
 		public int FillOpacity { get; set; }
 
-		[Display(Name = "Show 50% Midline", Description = "Draws a line halfway between the base and parallel lines.", GroupName = "2. Visuals", Order = 7)]
+		[Display(Name = "Show 50% Midline", Description = "Draws a line halfway between the base and parallel lines.", GroupName = "2. Visuals", Order = 8)]
 		public bool ShowMidline { get; set; }
 
-		[Display(Name = "Midline", Description = "Color, dash style and width of the 50% midline.", GroupName = "2. Visuals", Order = 8)]
+		[Display(Name = "Midline", Description = "Color, dash style and width of the 50% midline.", GroupName = "2. Visuals", Order = 9)]
 		public Stroke MidlineStroke { get; set; }
 
 		// ---- Legacy v1.2.x settings: read from old workspaces/templates, never written back ----
@@ -437,6 +456,44 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 
 			newMidEnd = pivot + (v * ((len - RotateHandleGap) / len));
 			return Math.Abs(newMidEnd.X - pivot.X) >= MinSpanPx;
+		}
+
+		// The channel with its right-hand end lengthened along the lines (angle and width unchanged). First the
+		// parallel line's right end reaches reachX (the third click's X, which lies on the parallel line; pass
+		// float.MinValue when there is none) if that is further right, then, when applyMultiplier is set, the length
+		// is multiplied by LengthMultiplier. Never shortens. Bar spacing is linear in X, so multiplying the X span
+		// multiplies the length in bars too. Returns false, leaving ext = g, when nothing changes.
+		private bool TryExtendLength(ChannelGeometry g, float reachX, bool applyMultiplier, out ChannelGeometry ext)
+		{
+			ext = g;
+			if (Math.Abs(g.BaseEnd.X - g.BaseStart.X) < MinSpanPx)
+				return false;
+
+			bool endIsRight = g.BaseEnd.X >= g.BaseStart.X;
+			float leftX = endIsRight ? g.BaseStart.X : g.BaseEnd.X;
+			float rightX = endIsRight ? g.BaseEnd.X : g.BaseStart.X;
+
+			// 1. Click 3 can push the end further right. The cursor is on the parallel line, and with Square ends
+			//    the parallel corner sits sideways from the base corner (Off.X * Width), so convert the cursor's X
+			//    into the base corner's X. Vertical ends have Off.X = 0, so nothing changes there.
+			float reachBaseX = reachX - (g.Off.X * g.Width);
+			float reachedX = reachBaseX > rightX ? reachBaseX : rightX;
+
+			// 2. The multiplier applies to that length
+			float targetX = reachedX;
+			if (applyMultiplier && LengthMultiplier > 1.0001)
+				targetX = leftX + ((reachedX - leftX) * (float)LengthMultiplier);
+
+			if (targetX <= rightX + 0.5f)
+				return false;
+
+			Vector2 newRight = new Vector2(targetX, LineY(g.BaseStart, g.Slope, targetX));
+			Vector2 newStart = endIsRight ? g.BaseStart : newRight;
+			Vector2 newEnd = endIsRight ? newRight : g.BaseEnd;
+
+			// Any point on the parallel line keeps the same width
+			ext = CalculateGeometry(ToPoint(newStart), ToPoint(newEnd), ToPoint(g.ParallelStart));
+			return true;
 		}
 
 		// Price distance from the base line to the parallel line, interpolating the base line in time
@@ -675,6 +732,20 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 					{
 						// Click 3: AnchorChannelOffset locked
 						dataPoint.CopyDataValues(AnchorChannelOffset);
+
+						// Lengthen the right-hand end to the further of: length x Length Multiplier, or this click
+						// (hand-drawn channels only; never shortens)
+						ChannelGeometry drawn = GetGeometry(chartControl, chartPanel, chartScale);
+						ChannelGeometry lengthened;
+						if (TryExtendLength(drawn, (float)mousePt.X, true, out lengthened))
+						{
+							foreach (ChartAnchor anchor in Anchors)
+								anchor.IsEditing = true;
+							ApplyAnchors(lengthened.BaseStart, lengthened.BaseEnd, lengthened.ParallelStart, chartControl, chartScale);
+							foreach (ChartAnchor anchor in Anchors)
+								anchor.IsEditing = false;
+						}
+
 						AnchorChannelOffset.IsEditing = false;
 
 						currentBuildStep = BuildStep.NotStarted;
@@ -855,6 +926,9 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 
 			cachedFillColor = ToSharpDXColor(FillColor, FillOpacity / 100f);
 			dxFillBrush = new SharpDX.Direct2D1.SolidColorBrush(rt, cachedFillColor);
+
+			cachedGhostColor = ToSharpDXColor(LineStroke != null ? LineStroke.Brush : null, GhostAlpha);
+			dxGhostBrush = new SharpDX.Direct2D1.SolidColorBrush(rt, cachedGhostColor);
 		}
 
 		private void DisposeDeviceResources()
@@ -864,6 +938,7 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 			DisposeBrush(ref dxHandleBorder);
 			DisposeBrush(ref dxWidthHandleFill);
 			DisposeBrush(ref dxAccent);
+			DisposeBrush(ref dxGhostBrush);
 			if (dxGuideStyle != null)
 			{
 				dxGuideStyle.Dispose();
@@ -954,37 +1029,65 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 				cachedFillColor = fill;
 			}
 
+			// Line color changed in the properties: update the ghost brush, no reallocation
+			Color4 ghost = ToSharpDXColor(LineStroke.Brush, GhostAlpha);
+			if (ghost != cachedGhostColor)
+			{
+				dxGhostBrush.Color = ghost;
+				cachedGhostColor = ghost;
+			}
+
 			ChartPanel chartPanel = chartControl.ChartPanels[chartScale.PanelIndex];
 			ChannelGeometry g = GetGeometry(chartControl, chartPanel, chartScale);
 
 			LineStroke.RenderTarget = rt;
 
-			// STAGE 1 (after click 1): base line to the cursor + dashed ray guide to the chart edge
+			// STAGE 1 (after click 1): base line to the cursor, faint ghost of the extra length
+			// (Length Multiplier), then a dashed ray guide on to the chart edge
 			if (DrawingState == DrawingState.Building && currentBuildStep == BuildStep.SettingBaseEnd)
 			{
+				ChannelGeometry x;
+				TryExtendLength(g, float.MinValue, true, out x);
+
 				rt.DrawLine(g.BaseStart, g.BaseEnd, LineStroke.BrushDX, LineStroke.Width, LineStroke.StrokeStyle);
-				DrawRayGuide(rt, g.BaseEnd, g.BaseEnd - g.BaseStart, chartPanel);
+				DrawGhost(rt, g.BaseStart, x.BaseStart);
+				DrawGhost(rt, g.BaseEnd, x.BaseEnd);
+				DrawRayGuide(rt, x.BaseEnd, g.BaseEnd - g.BaseStart, chartPanel);
 				return;
 			}
 
-			// STAGE 2 (after click 2): full channel preview tracking the cursor + dashed ray guides
+			// STAGE 2 (after click 2): full channel preview tracking the cursor (the third click).
+			//   r = reached channel: solid, out to the cursor when it is further right than click 2
+			//   x = final channel:   r x Length Multiplier, the extra shown as faint ghost lines
+			// The fill covers the final channel, then dashed ray guides continue to the chart edge.
 			if (DrawingState == DrawingState.Building && currentBuildStep == BuildStep.SettingChannelOffset)
 			{
-				if (FillOpacity > 0 && !IsInHitTest)
-					rt.FillGeometry(GetFillGeometry(g.BaseStart, g.BaseEnd, g.ParallelEnd, g.ParallelStart), dxFillBrush);
+				float cursorX = (float)AnchorChannelOffset.GetPoint(chartControl, chartPanel, chartScale).X;
+				ChannelGeometry r, x;
+				TryExtendLength(g, cursorX, false, out r);
+				TryExtendLength(g, cursorX, true, out x);
 
-				rt.DrawLine(g.BaseStart, g.BaseEnd, LineStroke.BrushDX, LineStroke.Width, LineStroke.StrokeStyle);
-				rt.DrawLine(g.ParallelStart, g.ParallelEnd, LineStroke.BrushDX, LineStroke.Width, LineStroke.StrokeStyle);
+				if (FillOpacity > 0 && !IsInHitTest)
+					rt.FillGeometry(GetFillGeometry(x.BaseStart, x.BaseEnd, x.ParallelEnd, x.ParallelStart), dxFillBrush);
+
+				rt.DrawLine(r.BaseStart, r.BaseEnd, LineStroke.BrushDX, LineStroke.Width, LineStroke.StrokeStyle);
+				rt.DrawLine(r.ParallelStart, r.ParallelEnd, LineStroke.BrushDX, LineStroke.Width, LineStroke.StrokeStyle);
+				DrawGhost(rt, r.BaseStart, x.BaseStart);
+				DrawGhost(rt, r.BaseEnd, x.BaseEnd);
+				DrawGhost(rt, r.ParallelStart, x.ParallelStart);
+				DrawGhost(rt, r.ParallelEnd, x.ParallelEnd);
 
 				if (ShowMidline && MidlineStroke != null)
 				{
 					MidlineStroke.RenderTarget = rt;
-					rt.DrawLine(g.MidStart, g.MidEnd, MidlineStroke.BrushDX, MidlineStroke.Width, MidlineStroke.StrokeStyle);
+					rt.DrawLine(r.MidStart, r.MidEnd, MidlineStroke.BrushDX, MidlineStroke.Width, MidlineStroke.StrokeStyle);
+					DrawGhost(rt, r.MidStart, x.MidStart);
+					DrawGhost(rt, r.MidEnd, x.MidEnd);
 				}
 
 				Vector2 dir = g.BaseEnd - g.BaseStart;
-				DrawRayGuide(rt, g.BaseEnd, dir, chartPanel);
-				DrawRayGuide(rt, g.ParallelEnd, dir, chartPanel);
+				DrawRayGuide(rt, x.BaseEnd, dir, chartPanel);
+				DrawRayGuide(rt, x.ParallelEnd, dir, chartPanel);
 				return;
 			}
 
@@ -1044,6 +1147,14 @@ namespace NinjaTrader.NinjaScript.DrawingTools.icPA
 				return;
 
 			rt.DrawLine(from, from + (dir * t), LineStroke.BrushDX, 1f, dxGuideStyle);
+		}
+
+		// Faint segment in the line color showing length that Length Multiplier will add (building preview only)
+		private void DrawGhost(SharpDX.Direct2D1.RenderTarget rt, Vector2 from, Vector2 to)
+		{
+			if (dxGhostBrush == null || (to - from).LengthSquared() < 1f)
+				return;
+			rt.DrawLine(from, to, dxGhostBrush, LineStroke.Width, LineStroke.StrokeStyle);
 		}
 
 		private void DrawCircleHandle(SharpDX.Direct2D1.RenderTarget rt, Vector2 center,
